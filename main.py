@@ -19,7 +19,7 @@ class MySender:
     ''' Отправляет данные на сервер.'''
 
     MAX_SIZE = 8  # максимальный размер в гигабайтах
-    MAX_BYTES = MAX_SIZE * (1024 ^ 3)  # максимальный размер в байтах
+    MAX_BYTES = MAX_SIZE * (1024)  # максимальный размер в байтах
     RETRY_PERIOD = 10  # интервал для повторных попыток в секундах
     DEFAULT_PORT = 1234
 
@@ -31,10 +31,11 @@ class MySender:
 
     def create_tcp_connection(self) -> None:
         data = self._generate_random_data()
+        logger.info(f'Сгенерированы данные размером {len(data)} байт')
         if len(data) > self.MAX_BYTES:
             logger.error(f'Размер данных {len(data)} превышает максимально допустимый размер {self.MAX_BYTES}')
             raise ValueError(f'Размер данных {len(data)} превышает максимально допустимый размер {self.MAX_BYTES}')
-        size = struct.pack('Q', len(data))
+        size = len(data).to_bytes(length=4, byteorder='big', signed=False)
         sent_data = 0
         for _ in range(1, 4):
             try:
@@ -43,7 +44,7 @@ class MySender:
                     sent = s.send(size + data)
                     if sent is not None:
                        sent_data += sent
-                    logger.info(f'Отправлено {sent} байт данных на сервер {self.server_host}')
+                    logger.info(f'Отправлено {sent_data} байт данных на сервер {self.server_host}')
                     return sent_data
             except ConnectionError as e:
                 logger.error(f'Не удалось установить соединение из-за ошибки {e} сервера {self.server_host}. Повторное соединение через {self.RETRY_PERIOD} секунд...')
@@ -55,7 +56,7 @@ class MySender:
 class MyListener:
     ''' Принимает реквизиты сервера для запуска сервиса приёма данных.'''
 
-    FIXED_BYTE_SIZE = 8  # фиксированный размер данных в байтах в протоколе
+    FIXED_BYTE_SIZE = 4  # фиксированный размер данных в байтах в протоколе
     INITIAL_BYTES_LEN = 16  # количество первых байт данных для вывода
 
     def __init__(self, service_ip, service_port) -> None:
@@ -85,11 +86,11 @@ class MyListener:
             if not size_bytes:
                 logger.info('Соединение закрыто клиентом')
                 return
-            size = struct.unpack('Q', size_bytes)[0]
+            size = int.from_bytes(size_bytes, byteorder='big', signed=False)
             # Получаем сами данные
             data = conn.recv(size)
             logger.info(f'Размер данных: {size}')
-            logger.info(f'Первые {self.INITIAL_BYTES_LEN} байт данных: {data[:self.INITIAL_BYTES_LEN].hex()}')
+            logger.info(f'Первые {self.INITIAL_BYTES_LEN} байт данных в hex-формате: {data[:self.INITIAL_BYTES_LEN].hex()}')
         except socket.error as e:
             logger.error(f'Ошибка при получении данных: {e}')
         except struct.error as e:
