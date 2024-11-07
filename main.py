@@ -19,7 +19,7 @@ class MySender:
     ''' Отправляет данные на сервер.'''
 
     MAX_SIZE = 8  # максимальный размер в гигабайтах
-    MAX_BYTES = MAX_SIZE * (1024)  # максимальный размер в байтах
+    MAX_BYTES = MAX_SIZE * (1024**3)  # максимальный размер в байтах
     RETRY_PERIOD = 10  # интервал для повторных попыток в секундах
     DEFAULT_PORT = 1234
 
@@ -33,8 +33,10 @@ class MySender:
         data = self._generate_random_data()
         logger.info(f'Сгенерированы данные размером {len(data)} байт')
         if len(data) > self.MAX_BYTES:
-            logger.error(f'Размер данных {len(data)} превышает максимально допустимый размер {self.MAX_BYTES}')
-            raise ValueError(f'Размер данных {len(data)} превышает максимально допустимый размер {self.MAX_BYTES}')
+            logger.error(f'Размер данных {len(data)} превышает максимально'
+                         f'допустимый размер {self.MAX_BYTES}')
+            raise ValueError(f'Размер данных {len(data)} превышает максимально'
+                             f'допустимый размер {self.MAX_BYTES}')
         size = len(data).to_bytes(length=4, byteorder='big', signed=False)
         sent_data = 0
         for _ in range(1, 4):
@@ -43,14 +45,19 @@ class MySender:
                     s.connect((self.server_host, self.DEFAULT_PORT))
                     sent = s.send(size + data)
                     if sent is not None:
-                       sent_data += sent
-                    logger.info(f'Отправлено {sent_data} байт данных на сервер {self.server_host}')
+                        sent_data += sent
+                    logger.info(f'Отправлено {sent_data} байт данных'
+                                f'на сервер {self.server_host}')
                     return sent_data
             except ConnectionError as e:
-                logger.error(f'Не удалось установить соединение из-за ошибки {e} сервера {self.server_host}. Повторное соединение через {self.RETRY_PERIOD} секунд...')
+                logger.error(f'Не удалось установить соединение из-за ошибки'
+                             f'{e} сервера {self.server_host}. Повторное'
+                             f'соединение через {self.RETRY_PERIOD} секунд.')
                 time.sleep(self.RETRY_PERIOD)
-        logger.error(f'Не удалось установить соединение с сервером {self.server_host} после трёх попыток')
-        raise ConnectionError(f'Не удалось установить соединение с сервером {self.server_host} после трёх попыток')
+        logger.error(f'Не удалось установить соединение с сервером'
+                     f'{self.server_host} после трёх попыток')
+        raise ConnectionError(f'Не удалось установить соединение с сервером'
+                              f'{self.server_host} после трёх попыток')
 
 
 class MyListener:
@@ -68,7 +75,8 @@ class MyListener:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.bind((self.service_ip, self.service_port))
                 s.listen(1)
-                logger.info(f'Сервис запущен на {self.service_ip}:{self.service_port}')
+                logger.info(f'Сервис запущен на'
+                            f'{self.service_ip}:{self.service_port}')
                 while True:
                     conn, addr = s.accept()
                     with conn:
@@ -90,7 +98,8 @@ class MyListener:
             # Получаем сами данные
             data = conn.recv(size)
             logger.info(f'Размер данных: {size}')
-            logger.info(f'Первые {self.INITIAL_BYTES_LEN} байт данных в hex-формате: {data[:self.INITIAL_BYTES_LEN].hex()}')
+            logger.info(f'Первые {self.INITIAL_BYTES_LEN} байт данных в'
+                        f'hex-формате: {data[:self.INITIAL_BYTES_LEN].hex()}')
         except socket.error as e:
             logger.error(f'Ошибка при получении данных: {e}')
         except struct.error as e:
@@ -111,14 +120,16 @@ def main():
             service_ip = sys.argv[2]
             service_port = int(sys.argv[3])
             listener = MyListener(service_ip, service_port)
-            logger.info(f'Сервер {service_ip} запущен. Прослушивание порта {service_port}')
+            logger.info(f'Сервер {service_ip} запущен.'
+                        f'Прослушивание порта {service_port}')
             listener.start_tcp_service()
         else:
             print('Неверно указана роль. Допустимые роли: sender, listener')
     except IndexError:
-        print("Использование: python main.py <role> <server_name_or_ip> [<host> <port>]")
+        print('Использование: python main.py <role> <server_name_or_ip>'
+              '[<host> <port>]')
     except Exception as e:
-        logger.error(f"Произошла ошибка: {e}")
+        logger.error(f'Произошла ошибка: {e}')
         logger.exception(e)
 
 
