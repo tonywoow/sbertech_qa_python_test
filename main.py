@@ -19,7 +19,7 @@ class MySender:
     ''' Отправляет данные на сервер.'''
 
     MAX_SIZE = 8  # максимальный размер в гигабайтах
-    MAX_BYTES = MAX_SIZE * (1024**3)  # максимальный размер в байтах
+    MAX_BYTES = MAX_SIZE * (1024 ** 3)  # максимальный размер в байтах
     RETRY_PERIOD = 10  # интервал для повторных попыток в секундах
     DEFAULT_PORT = 1234
 
@@ -38,8 +38,9 @@ class MySender:
                          f'допустимый размер {self.MAX_BYTES}')
             raise ValueError(f'Размер данных {len(data)} превышает максимально'
                              f'допустимый размер {self.MAX_BYTES}')
-        # size = len(data).to_bytes(length=4, byteorder='big', signed=False)
+
         sent_data = 0
+        # Реализуется три попытки подключения к серверу
         for _ in range(1, 4):
             try:
                 logger.info(f'Открываем сокет и подключаемся к серверу '
@@ -47,21 +48,30 @@ class MySender:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((self.server_host, self.DEFAULT_PORT))
                     logger.info('Успешно подключились к серверу')
-                    chunk_size = 4096
-                    for i in range(0, len(data), chunk_size):
-                        sent = s.send(data[i:i+chunk_size])
-                        sent_data += sent
-                        logger.info(f'Отправлено {sent_data} байт данных '
-                                    f'на сервер {self.server_host}')
+                    # Определяется размер данных для отправки на сервер и
+                    # сколько байт необходимо для представления размера данных
+                    data_size = len(data)
+                    # Размер данных занимает минимальное необходимое
+                    # количество байт (от 1 до 6)
+                    size_bytes = data_size.to_bytes(next((
+                        i for i in range(1, 7) if data_size < (1 << (i * 8))),
+                        6), byteorder='big', signed=False)
+                    logger.info(f'Размер данных: {len(size_bytes)} байт')
+                    # Отправляются данные в формате <размер><данные>
+                    s.sendall(size_bytes)
+                    s.sendall(data)
+                    sent_data = len(data) + len(size_bytes)
+                    logger.info(f'Отправлено {sent_data} байт данных '
+                                f'на сервер {self.server_host}')
                     return sent_data
             except ConnectionError as e:
-                logger.error(f'Не удалось установить соединение из-за ошибки'
+                logger.error(f'Не удалось установить соединение из-за ошибки '
                              f'{e} сервера {self.server_host}. Повторное '
                              f'соединение через {self.RETRY_PERIOD} секунд.')
                 time.sleep(self.RETRY_PERIOD)
-        logger.error(f'Не удалось установить соединение с сервером'
+        logger.error(f'Не удалось установить соединение с сервером '
                      f'{self.server_host} после трёх попыток')
-        raise ConnectionError(f'Не удалось установить соединение с сервером'
+        raise ConnectionError(f'Не удалось установить соединение с сервером '
                               f'{self.server_host} после трёх попыток')
 
 

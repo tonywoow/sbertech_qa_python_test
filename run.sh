@@ -4,7 +4,7 @@
 ILIST=$(ifconfig | grep 'inet ' | awk '{print $2}' | cut -d':' -f2)
 
 # Установка номера порта
-MIN_PORT=8080
+MIN_PORT=6000
 
 COUNTER=0
 for SERVER_IP in $ILIST; do
