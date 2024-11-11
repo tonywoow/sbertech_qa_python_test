@@ -26,32 +26,37 @@ class MySender:
     def __init__(self, server_host) -> None:
         self.server_host = server_host
 
-    def _generate_random_data(self) -> int:
+    def _generate_random_data(self) -> bytes:
         return os.urandom(random.randint(1, self.MAX_BYTES))
 
-    def create_tcp_connection(self) -> None:
+    def create_tcp_connection(self) -> int:
         data = self._generate_random_data()
         logger.info(f'Сгенерированы данные размером {len(data)} байт')
+        logger.info(f'Тип данных: {type(data)}')
         if len(data) > self.MAX_BYTES:
             logger.error(f'Размер данных {len(data)} превышает максимально'
                          f'допустимый размер {self.MAX_BYTES}')
             raise ValueError(f'Размер данных {len(data)} превышает максимально'
                              f'допустимый размер {self.MAX_BYTES}')
-        size = len(data).to_bytes(length=4, byteorder='big', signed=False)
+        # size = len(data).to_bytes(length=4, byteorder='big', signed=False)
         sent_data = 0
         for _ in range(1, 4):
             try:
+                logger.info(f'Открываем сокет и подключаемся к серверу '
+                            f'{self.server_host}:{self.DEFAULT_PORT}')
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((self.server_host, self.DEFAULT_PORT))
-                    sent = s.send(size + data)
-                    if sent is not None:
+                    logger.info('Успешно подключились к серверу')
+                    chunk_size = 4096
+                    for i in range(0, len(data), chunk_size):
+                        sent = s.send(data[i:i+chunk_size])
                         sent_data += sent
-                    logger.info(f'Отправлено {sent_data} байт данных'
-                                f'на сервер {self.server_host}')
+                        logger.info(f'Отправлено {sent_data} байт данных '
+                                    f'на сервер {self.server_host}')
                     return sent_data
             except ConnectionError as e:
                 logger.error(f'Не удалось установить соединение из-за ошибки'
-                             f'{e} сервера {self.server_host}. Повторное'
+                             f'{e} сервера {self.server_host}. Повторное '
                              f'соединение через {self.RETRY_PERIOD} секунд.')
                 time.sleep(self.RETRY_PERIOD)
         logger.error(f'Не удалось установить соединение с сервером'
@@ -75,7 +80,7 @@ class MyListener:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.bind((self.service_ip, self.service_port))
                 s.listen(1)
-                logger.info(f'Сервис запущен на'
+                logger.info(f'Сервис запущен на '
                             f'{self.service_ip}:{self.service_port}')
                 while True:
                     conn, addr = s.accept()
@@ -120,7 +125,7 @@ def main():
             service_ip = sys.argv[2]
             service_port = int(sys.argv[3])
             listener = MyListener(service_ip, service_port)
-            logger.info(f'Сервер {service_ip} запущен.'
+            logger.info(f'Сервер {service_ip} запущен. '
                         f'Прослушивание порта {service_port}')
             listener.start_tcp_service()
         else:
